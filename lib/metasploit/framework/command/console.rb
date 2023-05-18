@@ -19,9 +19,11 @@ class Metasploit::Framework::Command::Console < Metasploit::Framework::Command::
     return if Rex::Compat.is_cygwin
     return if $msf_spinner_thread
     $msf_spinner_thread = Thread.new do
-      base_line = "[*] Starting the Metasploit Framework console..."
-      cycle = 0
-      loop do
+      base_line = "[*] Starting the HackMate..."
+      $stderr.print base_line 
+      ::IO.select(nil, nil, nil, 0.10) #This Part Leads To Main Part
+      '''loop do
+        
         %q{/-\|}.each_char do |c|
           status = "#{base_line}#{c}\r"
           cycle += 1
@@ -32,10 +34,9 @@ class Metasploit::Framework::Command::Console < Metasploit::Framework::Command::
           when /[A-Z]/
             status[off, 1] = status[off, 1].downcase
           end
-          $stderr.print status
-          ::IO.select(nil, nil, nil, 0.10)
+          
         end
-      end
+      end'''
     end
   end
 
@@ -45,7 +46,7 @@ class Metasploit::Framework::Command::Console < Metasploit::Framework::Command::
       $stderr.puts "Framework Version: #{Metasploit::Framework::VERSION}"
     else
       spinner unless parsed_options.options.console.quiet
-      driver.run
+      driver.run #This Function Runs the Actual Program
     end
   end
 
@@ -78,7 +79,7 @@ class Metasploit::Framework::Command::Console < Metasploit::Framework::Command::
       driver_options['DatabaseMigrationPaths'] = options.database.migrations_paths
       driver_options['DatabaseYAML'] = options.database.config
       driver_options['DeferModuleLoads'] = options.modules.defer_loads
-      driver_options['DisableBanner'] = options.console.quiet
+      driver_options['DisableBanner'] = options.console.quiet #This Option Will Handle To Show Banner CLI words
       driver_options['DisableDatabase'] = options.database.disable
       driver_options['HistFile'] = options.console.histfile
       driver_options['LocalOutput'] = options.console.local_output

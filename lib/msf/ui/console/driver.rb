@@ -65,6 +65,9 @@ class Driver < Msf::Ui::Driver
   def initialize(prompt = DefaultPrompt, prompt_char = DefaultPromptChar, opts = {})
     choose_readline(opts)
 
+    opts['DisableBanner'] = true
+
+
     histfile = opts['HistFile'] || Msf::Config.history_file
 
     # Initialize attributes
@@ -170,7 +173,7 @@ class Driver < Msf::Ui::Driver
     load_config(opts['Config'])
 
     # Process things before we actually display the prompt and get rocking
-    on_startup(opts)
+    on_startup(opts) #This shows up an UI for Metasploit
 
     # Process any resource scripts
     if opts['Resource'].blank?
@@ -362,7 +365,7 @@ class Driver < Msf::Ui::Driver
       $stderr.print "\r" + (" " * 50) + "\n"
     end
 
-    run_single("banner") unless opts['DisableBanner']
+    run_single("banner") unless opts['DisableBanner'] #This Will Actaullly Prints a UI Message
 
     av_warning_message if framework.eicar_corrupted?
 

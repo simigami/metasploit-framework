@@ -28,6 +28,10 @@ group :development do
   # Metasploit::Aggregator external session proxy
   # disabled during 2.5 transition until aggregator is available
   # gem 'metasploit-aggregator'
+
+  #This is a External Place for Hackmate Modules
+  #gem 'pg'
+  
 end
 
 group :development, :test do
