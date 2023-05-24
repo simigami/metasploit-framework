@@ -705,7 +705,7 @@ module Msf
             mod_name = args[0]
 
             # Use a module by search index
-            index_from_list(@module_search_results, mod_name) do |mod|
+            index_from_list(@module_searc_results, mod_name) do |mod|
               unless mod && mod.respond_to?(:fullname)
                 print_error("Invalid module index: #{mod_name}")
                 return false

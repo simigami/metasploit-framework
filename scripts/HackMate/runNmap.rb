@@ -47,7 +47,7 @@ def run_nmap(command_params, db_name, db_params, table_name, table_params)
 
   command = "#{command_params[:cmd]} #{command_params[:nmap_options]} #{log_file_path} #{command_params[:target]}"
 
-  puts command_params
+  #puts command_params
 
   execute_command(command)
 
