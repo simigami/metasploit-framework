@@ -154,7 +154,7 @@ module Msf
         Dir.glob(File.join(folder_path, '*')).each do |file_path|
           CSV.foreach(file_path) do |row|
             next if output_rows.any? { |existing_row| existing_row[1..-1] == row[1..-1] }
-            output_rows << row if flag
+            output_rows << row if flag==1
             output_rows << row if (row[1] && row[1].include?('exploit')) && (row[3] && (row[3].include?('great') || row[3].include?('excellent')))
             flag=0
           end
