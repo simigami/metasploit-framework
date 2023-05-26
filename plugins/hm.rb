@@ -11,6 +11,14 @@ module Msf
       include Msf::Ui::Console::CommandDispatcher
       include Msf::Modules
 
+      @@access_params = {
+        host: 'localhost',
+        port: 5432,
+        dbname: 'postgres',
+        user: 'useruser',
+        password: '1234'
+      }
+
       def name
         "HackMate"
       end
@@ -22,7 +30,9 @@ module Msf
       def commands
       {
             'HM' => 'Auto Attack Example',
-            'HMT' => 'Test'
+            'HM_Init' => 'Initialize HackMate',
+            'HM_Nmap' => 'Nmap Scan',
+            'HM_Vuln' => 'Get Exploit Path from VA Result'
       }
       end
 
@@ -42,14 +52,7 @@ module Msf
         # self.driver.run_single("use exploit/multi/misc/java_rmi_server")
       end
 
-      def cmd_HMT()
-        access_params = {
-          host: 'localhost',
-          port: 5432,
-          dbname: 'postgres',
-          user: 'useruser',
-          password: '1234'
-        }
+      def cmd_HM_Init()
         profile_table_params = "create table hm_profiles(
           profile_id SERIAL PRIMARY KEY,
           profile_name varchar(200) NOT NULL,
@@ -96,82 +99,72 @@ module Msf
             url: 'http://www.example.com2',
             db_type: 'postgresql'
         }
-        username = "testuser"
-        userauth = "superuser"
-        userpasswd = "3456"
+
         dbname = "hackmate"
         profile_insert_query = "INSERT INTO hm_profiles (profile_name, target_system_name, ipv4, ipv6, mac_address, port, url, db_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
-        base_dir = Dir.pwd()
 
         #create_role(access_params, username, userauth, userpasswd)
-        access_params[:dbname] = dbname
-        access_params[:user] = "useruser"
-        access_params[:password] = "1234"
-        #create_database(access_params, dbname)
-        #create_table(access_params, profile_table_params)
-        #create_table(access_params, nmap_table_params)
-        #create_table(access_params, va_result_table_params)
-        #insert_data_into_profile_table(access_params, profile_field_params, profile_insert_query)
+        @@access_params[:user] = "useruser"
+        @@access_params[:password] = "1234"
+
+        create_database(@@access_params, dbname)
+        create_table(@@access_params, profile_table_params)
+        create_table(@@access_params, nmap_table_params)
+        create_table(@@access_params, va_result_table_params)
+        insert_data_into_profile_table(@@access_params, profile_field_params, profile_insert_query)
+
+        base_dir = Dir.pwd()
         folder_name = "HackMate"
-        file_name = "hmtest"
-        extension_name = "txt"
-        #puts base_dir
         create_folder(base_dir, folder_name, 0777)
 
         hackmate_dir = base_dir + "/#{folder_name}"
-        #create_file(hackmate_dir, file_name, extension_name, 0666)
+        folder_name = "Nmap_Result"
+        create_folder(hackmate_dir, folder_name, 0777)
 
+        @@nmap_dir = hackmate_dir + "/#{folder_name}"
+        create_csv_folder_and_put_file(hackmate_dir)
+
+        csv_dir = hackmate_dir + "/CSV"
+        @@va_result_dir = create_folder_inside_csv_folder(csv_dir, "VA_Result")
+        @@exploit_search_dir = create_folder_inside_csv_folder(csv_dir, "Exploit_Search_Result")
+        @@final_result_dir = create_folder_inside_csv_folder(csv_dir, "Final_Result")
+      end
+
+      def cmd_HM_Nmap()
+        #create_file(hackmate_dir, file_name, extension_name, 0666)
         profile_name = "Profile1"
         target_system_name = "TS1"
         nmap_command_params = {
           cmd: "nmap",
           taget_profile_name: "#{profile_name}_#{target_system_name}",
-          target: "192.168.0.117",
-          nmap_options: "-sV -T4 -O -oN",
+          target: "192.168.0.117", #Target System IP Addr
+          nmap_options: "-F -T4 -O -oN",
           auth: 0666
         }
         table_name = "hm_nmap_result"
-        #run_nmap(nmap_command_params, access_params, table_name)
-
-        create_csv_folder_and_put_file(hackmate_dir)
-        csv_dir = hackmate_dir + "/CSV"
-
-        va_result_dir = create_folder_inside_csv_folder(csv_dir, "VA_Result")
-        exploit_search_dir = create_folder_inside_csv_folder(csv_dir, "Exploit_Search_Result")
-        final_result_dir = create_folder_inside_csv_folder(csv_dir, "Final_Result")
-
-        #import_data_into_va_result_table(access_params, va_result_dir/report.csv")
-
-        target_system_name = "Target1"
-        row_name = "summary"
-        good_vuln = find_good_vuln_from_summary(access_params, profile_name, target_system_name, row_name)
-
-        find_vuln(exploit_search_dir+"/", good_vuln)
-        add_keyword_and_search_exploit_vuln(profile_name, target_system_name, exploit_search_dir, final_result_dir)
-        # add_keyword_and_search_exploit_vuln(profile_name, target_system_name)
+        run_nmap(@@nmap_dir, nmap_command_params, @@access_params, table_name)
       end
 
-      def run_nmap(nmap_command_params, access_params, table_name)
+      def cmd_HM_Vuln()
+        profile_name = "Profile1"
+        target_system_name = "Target1"
+        row_name = "summary"
+        import_data_into_va_result_table(@@access_params, @@va_result_dir+"/report.csv")
+        good_vuln = find_good_vuln_from_summary(@@access_params, profile_name, target_system_name, row_name)
+
+        find_vuln(@@exploit_search_dir+"/", good_vuln)
+        add_keyword_and_search_exploit_vuln(profile_name, target_system_name, @@exploit_search_dir, @@final_result_dir)
+      end
+
+      def run_nmap(nmap_dir, nmap_command_params, access_params, table_name)
         begin
-          base_dir = Dir.pwd()
-          folder_name = "Nmap_Result"
-          if Dir.exists?("HackMate")
-            base_dir += "/HackMate"
-            nmap_dir = create_folder(base_dir, folder_name, 0666)
-          else
-            hackmate_dir = create_folder(".", "HackMate", 0666)
-            base_dir += "/HackMate"
-            nmap_dir = create_folder(base_dir, folder_name, 0666)
-          end
+          file_name = create_file(nmap_dir, "#{nmap_command_params[:taget_profile_name]}_Nmap_Result", "txt", 0666)
 
-          base_dir += "/#{folder_name}"
-          file_name = create_file(base_dir, "#{nmap_command_params[:taget_profile_name]}_Nmap_Result", "txt", 0666)
-
-          log_file_path = base_dir + "/#{file_name}"
+          log_file_path = nmap_dir + "/#{file_name}"
 
           command = "#{nmap_command_params[:cmd]} #{nmap_command_params[:nmap_options]} #{log_file_path} #{nmap_command_params[:target]}"
 
-          execute_command(command)
+          self.driver.run_single("#{command}")
 
           log = File.read(log_file_path)
 
@@ -212,7 +205,6 @@ module Msf
         rescue PG::Error => e
           puts "Error: #{e.message}"
         ensure
-          #connection.close if connection
         end
       end
 
@@ -271,19 +263,6 @@ module Msf
         # end
 
         return good_array
-      end
-
-      def unshift_CSV(log_location, modified_rows, profile, target)
-        CSV.foreach(log_location) do |row|
-          row.unshift(profile, target)
-          modified_rows << row
-        end
-
-        CSV.open(log_location, 'w') do |csv|
-          modified_rows.each do |row|
-            csv << row
-          end
-        end
       end
 
       def find_vuln(result_folder, good_array)

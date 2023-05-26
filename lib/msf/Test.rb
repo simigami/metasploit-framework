@@ -106,13 +106,26 @@ module Msf
 
     def import_data_into_va_result_table(access_params, csv_location)
       begin
+
         connection = PG::Connection.new(access_params)
+
+        rows = CSV.read(csv_location)
+
+        if rows[0][0] == 'IP'
+          delete_first_row(csv_location)
+        end
+
+        rows = CSV.read(csv_location)
+
+        if rows[0][0] != "Profile1"
+          unshift_CSV(csv_location, rows, "Profile1", "Target1")
+        end
 
         CSV.foreach(csv_location) do |row|
           profile_name = row[0]
           target_system_name = row[1]
           ip = row[2]
-          port = row[3]
+          port = row[3].to_i
           port_protocol = row[4]
           cvss = row[5]
           nvt_name = row[6]
@@ -210,6 +223,29 @@ module Msf
         puts "Error: #{e.message}"
       ensure
         connection.close if connection
+      end
+    end
+
+    def delete_first_row(csv_location)
+      rows = CSV.read(csv_location)
+
+      modified_rows = rows[1..-1] # Remove the first column from each row
+
+      #puts modified_rows
+      CSV.open(csv_location, 'w') { |csv| modified_rows.each { |row| csv << row } }
+    end
+
+    def unshift_CSV(csv_location, modified_rows, profile, target)
+      rows = CSV.read(csv_location)
+
+      modified_rows = rows.map.with_index do |row, index|
+        [profile, target] + row
+      end
+
+      CSV.open(csv_location, 'w') do |csv|
+        modified_rows.each do |row|
+          csv << row
+        end
       end
     end
 
