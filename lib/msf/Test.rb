@@ -150,7 +150,7 @@ module Msf
       begin
         folder_path = File.join(dir, foldername)
 
-        Dir.mkdir(folder_path, 0666)
+        Dir.mkdir(folder_path, auth)
 
         return folder_path
 

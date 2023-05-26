@@ -115,11 +115,11 @@ module Msf
 
         base_dir = Dir.pwd()
         folder_name = "HackMate"
-        create_folder(base_dir, folder_name, 0777)
+        create_folder(base_dir, folder_name, 04755)
 
         hackmate_dir = base_dir + "/#{folder_name}"
         folder_name = "Nmap_Result"
-        create_folder(hackmate_dir, folder_name, 0777)
+        create_folder(hackmate_dir, folder_name, 04755)
 
         @@nmap_dir = hackmate_dir + "/#{folder_name}"
         create_csv_folder_and_put_file(hackmate_dir)
@@ -210,13 +210,13 @@ module Msf
 
       def create_csv_folder_and_put_file(dir)
         foldername = "CSV"
-        csv_dir = create_folder(dir, foldername, 0666)
+        csv_dir = create_folder(dir, foldername, 04755)
 
         #put file code
       end
 
       def create_folder_inside_csv_folder(dir, foldername)
-        folder_inside_csv_dir = create_folder(dir, foldername, 0666)
+        folder_inside_csv_dir = create_folder(dir, foldername, 04755)
 
         return folder_inside_csv_dir
       end
