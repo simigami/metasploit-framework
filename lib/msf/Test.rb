@@ -54,23 +54,78 @@ module Msf
       end
     end
 
-    def insert_data_into_profile_table(access_params, field_params, insert_query)
+    def insert_data_into_profile_table(access_params, field_params)
       begin
+        select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+        insert_query = "INSERT INTO hm_profiles (profile_name, target_system_name, ipv4, ipv6, mac_address, port, url, db_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+        delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+        update_query = "UPDATE hm_profiles SET ipv4 = $1, ipv6 = $2, mac_address = $3, port = $4, url = $5, db_type = $6 WHERE profile_name = $7 AND target_system_name = $8"
+
         connection = PG::Connection.new(access_params)
 
-        connection.exec_params(
-          insert_query,
-          [
-            field_params[:profile_name],
-            field_params[:target_system_name],
-            field_params[:ipv4],
-            field_params[:ipv6],
-            field_params[:mac_address],
-            field_params[:port],
-            field_params[:url],
-            field_params[:db_type]
-          ]
-        )
+        #Check if profile_taget is already exists
+        result = connection.exec_params(select_query, [field_params[:profile_name], field_params[:target_system_name]])
+
+        record_count = result.getvalue(0, 0).to_i
+
+        #If Recode is more then 2, erase all and insert
+        if record_count >= 2
+          # Delete all existing records with matching profile_name and target_system_name
+          delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+          connection.exec_params(delete_query, [field_params[:profile_name], field_params[:target_system_name]])
+
+          puts "Deleted #{record_count} existing records. And Make New One"
+
+          connection.exec_params(
+            insert_query,
+            [
+              field_params[:profile_name],
+              field_params[:target_system_name],
+              field_params[:ipv4],
+              field_params[:ipv6],
+              field_params[:mac_address],
+              field_params[:port],
+              field_params[:url],
+              field_params[:db_type]
+            ]
+          )
+        end
+        #If Recode is 1, then Update data
+        if record_count == 1
+          # Update the existing record with new information
+          connection.exec_params(
+            update_query,
+            [
+              field_params[:ipv4],
+              field_params[:ipv6],
+              field_params[:mac_address],
+              field_params[:port],
+              field_params[:url],
+              field_params[:db_type],
+              field_params[:profile_name],
+              field_params[:target_system_name]
+            ]
+          )
+
+          puts "Data updated successfully."
+        end
+
+        if record_count == 0
+        #If Recode is 0, then Insert data
+          connection.exec_params(
+            insert_query,
+            [
+              field_params[:profile_name],
+              field_params[:target_system_name],
+              field_params[:ipv4],
+              field_params[:ipv6],
+              field_params[:mac_address],
+              field_params[:port],
+              field_params[:url],
+              field_params[:db_type]
+            ]
+          )
+        end
 
       rescue PG::Error => e
         puts "Error: #{e.message}"
@@ -82,6 +137,19 @@ module Msf
     def insert_data_into_nmap_table(access_params, field_params, insert_query)
       begin
         connection = PG::Connection.new(access_params)
+
+        select_query = "SELECT COUNT(*) FROM hm_nmap_result WHERE profile_name = $1"
+        result = connection.exec_params(select_query, [field_params[:profile_name]])
+
+        record_count = result.getvalue(0, 0).to_i
+
+        #If Recode is more then 2, erase all and insert
+        if record_count >= 1
+          # Delete all existing records with matching profile_name and target_system_name
+          delete_query = "DELETE FROM hm_nmap_result WHERE profile_name = $1"
+          connection.exec_params(delete_query, [field_params[:profile_name]])
+
+        end
 
         connection.exec_params(
           insert_query,
@@ -104,7 +172,7 @@ module Msf
       end
     end
 
-    def import_data_into_va_result_table(access_params, csv_location)
+    def import_data_into_va_result_table(access_params, profile_name, target_name, csv_location)
       begin
 
         connection = PG::Connection.new(access_params)
@@ -117,9 +185,12 @@ module Msf
 
         rows = CSV.read(csv_location)
 
-        if rows[0][0] != "Profile1"
-          unshift_CSV(csv_location, rows, "Profile1", "Target1")
+        if rows[0][0] != "#{profile_name}"
+          unshift_CSV(csv_location, rows, profile_name, target_name)
         end
+
+        delete_query = "DELETE FROM hm_va_result WHERE profile_name = $1 AND target_system_name = $2"
+        connection.exec_params(delete_query, [profile_name, target_name])
 
         CSV.foreach(csv_location) do |row|
           profile_name = row[0]
@@ -145,6 +216,7 @@ module Msf
         connection.close if connection
       end
     end
+
 
     def create_folder(dir, foldername, auth)
       begin

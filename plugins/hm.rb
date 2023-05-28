@@ -89,10 +89,12 @@ module Msf
           CVEs text NULL,
           Vulnerability_Insight text NULL
         )"
+
+        #This Should be shown on GUI
         profile_field_params = {
             profile_name: 'Profile1',
-            target_system_name: 'Test2',
-            ipv4: '192.168.0.123',
+            target_system_name: 'TS1',
+            ipv4: '192.168.0.117',
             ipv6: nil,
             mac_address: nil,
             port: 8000,
@@ -101,17 +103,17 @@ module Msf
         }
 
         dbname = "hackmate"
-        profile_insert_query = "INSERT INTO hm_profiles (profile_name, target_system_name, ipv4, ipv6, mac_address, port, url, db_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
-
         #create_role(access_params, username, userauth, userpasswd)
         @@access_params[:user] = "useruser"
         @@access_params[:password] = "1234"
 
         create_database(@@access_params, dbname)
+        @@access_params[:dbname] = "hackmate"
+
         create_table(@@access_params, profile_table_params)
         create_table(@@access_params, nmap_table_params)
         create_table(@@access_params, va_result_table_params)
-        insert_data_into_profile_table(@@access_params, profile_field_params, profile_insert_query)
+        insert_data_into_profile_table(@@access_params, profile_field_params) #This Function Delete, Update, Insert a Profile
 
         base_dir = Dir.pwd()
         folder_name = "HackMate"
@@ -126,6 +128,12 @@ module Msf
 
         csv_dir = hackmate_dir + "/CSV"
         @@va_result_dir = create_folder_inside_csv_folder(csv_dir, "VA_Result")
+
+        csv_name = "report.csv"
+        password = "user"
+        system("echo #{password} | sudo -S cp #{csv_name} #{@@va_result_dir}")
+        system("echo #{password} | sudo -S chmod 0666 #{@@va_result_dir}/#{csv_name}")
+
         @@exploit_search_dir = create_folder_inside_csv_folder(csv_dir, "Exploit_Search_Result")
         @@final_result_dir = create_folder_inside_csv_folder(csv_dir, "Final_Result")
       end
@@ -134,29 +142,70 @@ module Msf
         #create_file(hackmate_dir, file_name, extension_name, 0666)
         profile_name = "Profile1"
         target_system_name = "TS1"
+
+        profile_info = get_profile_from_GUI_and_DB(@@access_params, profile_name, target_system_name)
         nmap_command_params = {
           cmd: "nmap",
-          taget_profile_name: "#{profile_name}_#{target_system_name}",
-          target: "192.168.0.117", #Target System IP Addr
+          taget_profile_name: "#{profile_info[:profile_name]}_#{profile_info[:target_system_name]}",
+          target: "#{profile_info[:ipv4]}",
           nmap_options: "-F -T4 -O -oN",
           auth: 0666
         }
-        table_name = "hm_nmap_result"
-        run_nmap(@@nmap_dir, nmap_command_params, @@access_params, table_name)
+        run_nmap(@@nmap_dir, nmap_command_params, @@access_params)
       end
 
       def cmd_HM_Vuln()
         profile_name = "Profile1"
         target_system_name = "Target1"
         row_name = "summary"
-        import_data_into_va_result_table(@@access_params, @@va_result_dir+"/report.csv")
+        import_data_into_va_result_table(@@access_params, "Profile1", "Target1", @@va_result_dir+"/report.csv")
         good_vuln = find_good_vuln_from_summary(@@access_params, profile_name, target_system_name, row_name)
 
         find_vuln(@@exploit_search_dir+"/", good_vuln)
         add_keyword_and_search_exploit_vuln(profile_name, target_system_name, @@exploit_search_dir, @@final_result_dir)
       end
 
-      def run_nmap(nmap_dir, nmap_command_params, access_params, table_name)
+      def get_profile_from_GUI_and_DB(access_params, profile_name, target_system_name)
+        begin
+          connection = PG::Connection.new(access_params)
+
+          select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+
+          #Check if profile_taget is already exists
+          result = connection.exec_params(select_query, [profile_name, target_system_name])
+
+          record_count = result.getvalue(0, 0).to_i
+
+          puts record_count
+
+          #If Recode is more then 2, erase all and insert
+          if record_count != 1
+            raise StandardError, "Profile_Target should match only one record"
+
+          else
+            select_ipv4_query = "SELECT ipv4 FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+            ipv4_result = connection.exec_params(select_ipv4_query, [profile_name, target_system_name])
+
+            ipv4_value = ipv4_result.getvalue(0, 0)
+
+            profile_info = {
+              profile_name: profile_name,
+              target_system_name: target_system_name,
+              ipv4: ipv4_value
+            }
+            return profile_info
+          end
+
+        rescue PG::Error => e
+          puts "Error occurred while retrieving profile from DB: #{e.message}"
+
+        ensure
+          connection.close if connection
+
+        end
+      end
+
+      def run_nmap(nmap_dir, nmap_command_params, access_params)
         begin
           file_name = create_file(nmap_dir, "#{nmap_command_params[:taget_profile_name]}_Nmap_Result", "txt", 0666)
 
@@ -185,8 +234,6 @@ module Msf
             mac_address: mac_address
           }
 
-          puts result[:ip_address]
-
           field_params = {
             profile_name: result[:profile_name],
             ipv4: result[:ip_address],
@@ -198,7 +245,7 @@ module Msf
             OS_Guessing: nil
           }
 
-          insert_query = "INSERT INTO #{table_name} (profile_name, ipv4, ipv6, mac_address, port, port_description, version_names, OS_Guessing) VALUES ($1, $2, $3, $4, $5::integer[], $6::varchar[], $7::varchar[], $8)"
+          insert_query = "INSERT INTO hm_nmap_result (profile_name, ipv4, ipv6, mac_address, port, port_description, version_names, OS_Guessing) VALUES ($1, $2, $3, $4, $5::integer[], $6::varchar[], $7::varchar[], $8)"
 
           insert_data_into_nmap_table(access_params, field_params, insert_query)
 
@@ -225,7 +272,7 @@ module Msf
         summaries = []
         connection = PG.connect(access_params)
 
-        query = "SELECT #{row_name} FROM hm_va_result WHERE profile_name = '#{profile_name}' AND target_system_name = '#{target_system_name}'"
+        query = "SELECT profile_id, summary FROM hm_va_result WHERE profile_name = 'Profile1' AND target_system_name = 'Target1' order by profile_id ASC"
 
 
         result = connection.exec(query)
@@ -237,11 +284,13 @@ module Msf
           summaries << summary
         end
 
+        #puts summaries
+
         return summaries
       end
 
       def find_good_vuln_from_summary(access_params, profile_name, target_system_name, row_name)
-        good_vuln = ["httponly", "backdoor", "ruby", "exec", "rexec", "XSS", "remote", "EOL", "rlogin", "RCE", "DistCC", "AJP", "VNC", "postgres", "UnrealIRCd", "MySQL", "rsh", "PHP", "PUT", "DELETE", "java_RMI", "vsftpd", "FTP", "phpinfo", "OpenSSL", "TWiki", "CSRF", "STARTTLS", "jQuery", "Samba", "SMB", "SSRF", "SSLv", "TRACK", "SSH", "SSL", "TLS", "doc", "LFI", "SMTP", "VRFY", "EXPN", "ICMP"]
+        good_vuln = ["httponly", "backdoor", "ruby", "exec", "rexec", "XSS", "remote", "EOL", "rlogin", "RCE", "DistCC", "AJP", "VNC", "postgres", "UnrealIRCd", "MySQL", "rsh", "PHP", "PUT", "DELETE", "java_RMI", "vsftpd", "FTP", "phpinfo", "OpenSSL", "TWiki", "CSRF", "STARTTLS", "jQuery", "Samba", "SMB", "SSRF", "SSLv", "TRACK", "SSH", "SSL", "TLS", "doc", "LFI", "SMTP", "VRFY", "EXPN", "ICMP", "DoS"]
         good_array = []
         vuln_num = 1
 
@@ -251,10 +300,12 @@ module Msf
           temp = []
           good_vuln.each do |keyword|
             if row.include?(keyword)
+              #puts keyword
               temp << keyword
             end
           end
           good_array << temp
+          vuln_num += 1
         end
         # good_array.each do |row|
         #   row.each do |elem|
@@ -286,23 +337,6 @@ module Msf
           vuln_number += 1
         end
       end
-        # search_params = Msf::Modules::Metadata::Search.parse_search_string('java_rmi')
-        # result = Msf::Modules::Metadata::Cache.instance.find(search_params)
-        # result.each do |module_data|
-        #   module_name = module_data.name
-        #   module_description = module_data.description
-        #   date = module_data.disclosure_date
-        #   ref = module_data.path.sub(/^#{Regexp.escape(default_path)}/, '')
-
-        #   data_array << {
-        #     "Module Name" => module_name,
-        #     "Module Description" => module_description,
-        #     "Module Date" => date,
-        #     "Ref" => ref
-        #   }
-        # end
-        # return data_array
-      # end
 
       def add_keyword_and_search_exploit_vuln(profile_name, target_system_name, search_result_folder_dir, findal_result_dir)
         output_rows = []
@@ -332,6 +366,8 @@ module Msf
           end
         end
         File.chmod(0777, output_csv_path)
+
+        puts 'Exploit Path Result is Made'
 
         Dir.glob(File.join(search_result_folder_dir, '*.csv')).each do |file_path|
           FileUtils.rm(file_path)
