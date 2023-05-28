@@ -56,23 +56,23 @@ module Msf
 
     def insert_data_into_profile_table(access_params, field_params)
       begin
-        select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+        select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = $1"
         insert_query = "INSERT INTO hm_profiles (profile_name, target_system_name, ipv4, ipv6, mac_address, port, url, db_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
-        delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
-        update_query = "UPDATE hm_profiles SET ipv4 = $1, ipv6 = $2, mac_address = $3, port = $4, url = $5, db_type = $6 WHERE profile_name = $7 AND target_system_name = $8"
+        delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1"
+        update_query = "UPDATE hm_profiles SET ipv4 = $1, ipv6 = $2, mac_address = $3, port = $4, url = $5, db_type = $6 WHERE profile_name = $7"
 
         connection = PG::Connection.new(access_params)
 
         #Check if profile_taget is already exists
-        result = connection.exec_params(select_query, [field_params[:profile_name], field_params[:target_system_name]])
+        result = connection.exec_params(select_query, [field_params[:profile_name]])
 
         record_count = result.getvalue(0, 0).to_i
 
         #If Recode is more then 2, erase all and insert
         if record_count >= 2
           # Delete all existing records with matching profile_name and target_system_name
-          delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
-          connection.exec_params(delete_query, [field_params[:profile_name], field_params[:target_system_name]])
+          delete_query = "DELETE FROM hm_profiles WHERE profile_name = $1"
+          connection.exec_params(delete_query, [field_params[:profile_name]])
 
           puts "Deleted #{record_count} existing records. And Make New One"
 
@@ -189,7 +189,7 @@ module Msf
           unshift_CSV(csv_location, rows, profile_name, target_name)
         end
 
-        delete_query = "DELETE FROM hm_va_result WHERE profile_name = $1 AND target_system_name = $2"
+        delete_query = "DELETE FROM hm_va_result WHERE profile_name = $1"
         connection.exec_params(delete_query, [profile_name, target_name])
 
         CSV.foreach(csv_location) do |row|

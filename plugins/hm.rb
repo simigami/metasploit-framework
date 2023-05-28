@@ -31,6 +31,7 @@ module Msf
       {
             'HM' => 'Auto Attack Example',
             'HM_Init' => 'Initialize HackMate',
+            'HM_Add_Profile' => 'Add Profile of given Java Input',
             'HM_Nmap' => 'Nmap Scan',
             'HM_Vuln' => 'Get Exploit Path from VA Result'
       }
@@ -90,18 +91,6 @@ module Msf
           Vulnerability_Insight text NULL
         )"
 
-        #This Should be shown on GUI
-        profile_field_params = {
-            profile_name: 'Profile1',
-            target_system_name: 'TS1',
-            ipv4: '192.168.0.117',
-            ipv6: nil,
-            mac_address: nil,
-            port: 8000,
-            url: 'http://www.example.com2',
-            db_type: 'postgresql'
-        }
-
         dbname = "hackmate"
         #create_role(access_params, username, userauth, userpasswd)
         @@access_params[:user] = "useruser"
@@ -113,7 +102,7 @@ module Msf
         create_table(@@access_params, profile_table_params)
         create_table(@@access_params, nmap_table_params)
         create_table(@@access_params, va_result_table_params)
-        insert_data_into_profile_table(@@access_params, profile_field_params) #This Function Delete, Update, Insert a Profile
+        #insert_data_into_profile_table(@@access_params, profile_field_params) #This Function Delete, Update, Insert a Profile
 
         base_dir = Dir.pwd()
         folder_name = "HackMate"
@@ -138,15 +127,40 @@ module Msf
         @@final_result_dir = create_folder_inside_csv_folder(csv_dir, "Final_Result")
       end
 
-      def cmd_HM_Nmap()
-        #create_file(hackmate_dir, file_name, extension_name, 0666)
-        profile_name = "Profile1"
-        target_system_name = "TS1"
+      def cmd_HM_Add_Profile(profile_name, ip_addr)
+        unless profile_name.match?(/\A\w+\z/)
+          puts "Invalid profile name format. Profile name must only contain alphanumeric characters and underscores."
+          return
+        end
 
-        profile_info = get_profile_from_GUI_and_DB(@@access_params, profile_name, target_system_name)
+        unless ip_addr.match?(/\A(?:\d{1,3}\.){3}\d{1,3}\z/)
+          puts "Invalid IP address format. Please provide a valid IPv4 address."
+          return
+        end
+
+        profile_field_params = {
+          profile_name: "#{profile_name}",
+          target_system_name: 'TS1',
+          ipv4: "#{ip_addr}",
+          ipv6: nil,
+          mac_address: nil,
+          port: 8000,
+          url: 'http://www.example.com2',
+          db_type: 'postgresql'
+        }
+
+        insert_data_into_profile_table(@@access_params, profile_field_params)
+      end
+
+      def cmd_HM_Nmap(profile_name, ip_addr)
+        #create_file(hackmate_dir, file_name, extension_name, 0666)
+        name = profile_name
+        ip = ip_addr
+
+        profile_info = get_profile_from_GUI_and_DB(@@access_params, name, ip)
         nmap_command_params = {
           cmd: "nmap",
-          taget_profile_name: "#{profile_info[:profile_name]}_#{profile_info[:target_system_name]}",
+          taget_profile_name: "#{profile_info[:profile_name]}",
           target: "#{profile_info[:ipv4]}",
           nmap_options: "-F -T4 -O -oN",
           auth: 0666
@@ -165,14 +179,18 @@ module Msf
         add_keyword_and_search_exploit_vuln(profile_name, target_system_name, @@exploit_search_dir, @@final_result_dir)
       end
 
-      def get_profile_from_GUI_and_DB(access_params, profile_name, target_system_name)
+      def get_profile_from_GUI_and_DB(access_params, profile_name, ip_addr)
         begin
           connection = PG::Connection.new(access_params)
 
-          select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
+          select_query = "SELECT COUNT(*) FROM hm_profiles WHERE profile_name = '#{profile_name}' AND ipv4 = '#{ip_addr}'"
+
+          # puts profile_name
+          # puts ip_addr
+          # puts select_query
 
           #Check if profile_taget is already exists
-          result = connection.exec_params(select_query, [profile_name, target_system_name])
+          result = connection.exec(select_query)
 
           record_count = result.getvalue(0, 0).to_i
 
@@ -183,14 +201,13 @@ module Msf
             raise StandardError, "Profile_Target should match only one record"
 
           else
-            select_ipv4_query = "SELECT ipv4 FROM hm_profiles WHERE profile_name = $1 AND target_system_name = $2"
-            ipv4_result = connection.exec_params(select_ipv4_query, [profile_name, target_system_name])
+            select_ipv4_query = "SELECT ipv4 FROM hm_profiles WHERE profile_name = $1"
+            ipv4_result = connection.exec_params(select_ipv4_query, [profile_name])
 
             ipv4_value = ipv4_result.getvalue(0, 0)
 
             profile_info = {
               profile_name: profile_name,
-              target_system_name: target_system_name,
               ipv4: ipv4_value
             }
             return profile_info
@@ -342,11 +359,16 @@ module Msf
         output_rows = []
         flag = 1
 
-        timestamp = Time.now.strftime("%Y%m%d%H%M%S")
-        output_csv_name = "#{profile_name}_#{target_system_name}_result_#{timestamp}"
+        #timestamp = Time.now.strftime("%Y%m%d%H%M%S")s
+        output_csv_name = "#{target_system_name}_Vuln"
 
 
         output_csv_path = findal_result_dir + "/" + output_csv_name + ".csv"
+
+        if File.exist?(output_csv_path)
+          File.delete(output_csv_path)
+          puts "Deleted existing file: #{output_csv_path}"
+        end
 
         Dir.glob(File.join(search_result_folder_dir, '*')).each do |file_path|
           CSV.foreach(file_path) do |row|
