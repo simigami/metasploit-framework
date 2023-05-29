@@ -104,8 +104,8 @@ module Msf
         create_table(@@access_params, va_result_table_params)
         #insert_data_into_profile_table(@@access_params, profile_field_params) #This Function Delete, Update, Insert a Profile
 
-        #base_dir = Dir.pwd()
-        base_dir = "/home/user/Desktop/Everything_Related_To_Git/Projects/metasploit-framework"
+        base_dir = Dir.pwd() + "/metasploit-framework"
+
         folder_name = "HackMate"
         create_folder(base_dir, folder_name, 04755)
 
