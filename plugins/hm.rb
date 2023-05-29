@@ -91,10 +91,10 @@ module Msf
           Vulnerability_Insight text NULL
         )"
 
-        dbname = "hackmate"
         #create_role(access_params, username, userauth, userpasswd)
         @@access_params[:user] = "useruser"
         @@access_params[:password] = "1234"
+        dbname = "hackmate"
 
         create_database(@@access_params, dbname)
         @@access_params[:dbname] = "hackmate"
@@ -162,7 +162,7 @@ module Msf
           cmd: "nmap",
           taget_profile_name: "#{profile_info[:profile_name]}",
           target: "#{profile_info[:ipv4]}",
-          nmap_options: "-F -T4 -O -oN",
+          nmap_options: "-F -T4 -oN",
           auth: 0666
         }
         run_nmap(@@nmap_dir, nmap_command_params, @@access_params)

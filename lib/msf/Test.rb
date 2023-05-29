@@ -23,7 +23,11 @@ module Msf
 
     def create_database(access_params, dbname)
       begin
+        puts access_params
+        
         connection = PG.connect(host: "#{access_params[:host]}", port: "#{access_params[:port]}", dbname: "#{access_params[:dbname]}", user: "#{access_params[:user]}", password: "#{access_params[:password]}")
+        
+        
         connection.exec("CREATE DATABASE #{dbname}")
 
         access_params[:dbname] = dbname
@@ -190,7 +194,7 @@ module Msf
         end
 
         delete_query = "DELETE FROM hm_va_result WHERE profile_name = $1"
-        connection.exec_params(delete_query, [profile_name, target_name])
+        connection.exec_params(delete_query, [profile_name])
 
         CSV.foreach(csv_location) do |row|
           profile_name = row[0]
