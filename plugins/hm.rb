@@ -104,7 +104,8 @@ module Msf
         create_table(@@access_params, va_result_table_params)
         #insert_data_into_profile_table(@@access_params, profile_field_params) #This Function Delete, Update, Insert a Profile
 
-        base_dir = Dir.pwd()
+        #base_dir = Dir.pwd()
+        base_dir = "/home/user/Desktop/Everything_Related_To_Git/Projects/Hackmate/metasploit-framework"
         folder_name = "HackMate"
         create_folder(base_dir, folder_name, 04755)
 
@@ -119,8 +120,12 @@ module Msf
         @@va_result_dir = create_folder_inside_csv_folder(csv_dir, "VA_Result")
 
         csv_name = "report.csv"
+        #csv_name = "metasploit-framwork/report.csv" This will be cofirmed tonight
         password = "user"
-        system("echo #{password} | sudo -S cp #{csv_name} #{@@va_result_dir}")
+
+        #puts "echo #{password} | sudo -S cp #{base_dir}/#{csv_name} #{@@va_result_dir}"
+
+        system("echo #{password} | sudo -S cp #{base_dir}/#{csv_name} #{@@va_result_dir}")
         system("echo #{password} | sudo -S chmod 0666 #{@@va_result_dir}/#{csv_name}")
 
         @@exploit_search_dir = create_folder_inside_csv_folder(csv_dir, "Exploit_Search_Result")

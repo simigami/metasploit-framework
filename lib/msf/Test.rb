@@ -23,7 +23,7 @@ module Msf
 
     def create_database(access_params, dbname)
       begin
-        puts access_params
+        #puts access_params
         
         connection = PG.connect(host: "#{access_params[:host]}", port: "#{access_params[:port]}", dbname: "#{access_params[:dbname]}", user: "#{access_params[:user]}", password: "#{access_params[:password]}")
         
